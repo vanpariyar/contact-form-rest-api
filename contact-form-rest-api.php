@@ -24,13 +24,26 @@
 define( 'CONTACT_FORM_REST_API_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'CONTACT_FORM_REST_API_PLUGIN_URL', plugins_url( __FILE__ ) );
 
-// require_once( CONTACT_FORM_REST_API_PLUGIN_DIR . 'includes/plugin_helpers.php');
+/**
+ * Plugin Activation and Deactivation Hooks
+ */
+
+require_once( CONTACT_FORM_REST_API_PLUGIN_DIR . 'includes/plugin_helpers.php');
+register_activation_hook( __FILE__ , array( 'Wp_Contact_Form_Rest_Api', 'activation_hook' ) );
+register_deactivation_hook( __FILE__ , array( 'Wp_Contact_Form_Rest_Api', 'deactivation_hook' ) );
 
 /**
  *  TODO :: Remove the WP-basic Auth Plugin From Code.
  * 
  */
-require_once( CONTACT_FORM_REST_API_PLUGIN_DIR . 'api/basic-auth.php');
+require_once CONTACT_FORM_REST_API_PLUGIN_DIR . 'api/basic-auth.php';
 
+/**
+ * Registred Routes in the plugin
+ */
+require_once CONTACT_FORM_REST_API_PLUGIN_DIR . 'api/routes/contact.php';
 
-require_once( CONTACT_FORM_REST_API_PLUGIN_DIR . 'api/routes/contact.php');
+/**
+ * Finally Jump Start the Plugin.
+ */
+$wp_rest_api_init = new Wp_Contact_Form_Rest_Api();

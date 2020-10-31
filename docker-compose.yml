@@ -8,6 +8,7 @@ services:
       - 8080:80
     environment:
       WORDPRESS_DB_PASSWORD: example
+      WORDPRESS_DEBUG: 1
     volumes:
       - ./:/var/www/html/wp-content/plugins/contact-form-rest-api
 
