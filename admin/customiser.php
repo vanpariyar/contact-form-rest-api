@@ -31,7 +31,7 @@ class Wp_Contact_Form_Rest_Api_Admin_customiser {
             'label'               => __( 'Contacts', 'ContactFormRestApi' ),
             'description'         => __( '', 'ContactFormRestApi' ),
             'labels'              => $expense_labels,        
-            'supports'            => array( 'title', 'excerpt', 'author', 'thumbnail', 'comments', 'custom-fields', ),        
+            'supports'            => array( 'title', 'excerpt', 'author', 'thumbnail', 'comments', 'custom-fields','editor' ),        
             'taxonomies'          => array( 'expense-category' ),        
             'hierarchical'        => false,
             'public'              => true,
