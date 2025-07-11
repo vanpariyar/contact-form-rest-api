@@ -12,27 +12,27 @@ class Wp_Contact_Form_Rest_Api_Admin_customiser {
     public static function customizer(){
         /* Contacts custom post type - Start */
         $expense_labels = array(
-            'name'                => _x( 'Contacts', 'Post Type General Name', 'ContactFormRestApi' ),
-            'singular_name'       => _x( 'Contact', 'Post Type Singular Name', 'ContactFormRestApi' ),
-            'menu_name'           => __( 'Contacts', 'ContactFormRestApi' ),
-            'parent_item_colon'   => __( 'Parent Contact', 'ContactFormRestApi' ),
-            'all_items'           => __( 'All Contacts', 'ContactFormRestApi' ),
-            'view_item'           => __( 'View Contact', 'ContactFormRestApi' ),
-            'add_new_item'        => __( 'Add New Contact', 'ContactFormRestApi' ),
-            'add_new'             => __( 'Add New', 'ContactFormRestApi' ),
-            'edit_item'           => __( 'Edit Contact', 'ContactFormRestApi' ),
-            'update_item'         => __( 'Update Contact', 'ContactFormRestApi' ),
-            'search_items'        => __( 'Search Contact', 'ContactFormRestApi' ),
-            'not_found'           => __( 'Not Found', 'ContactFormRestApi' ),
-            'not_found_in_trash'  => __( 'Not found in Trash', 'ContactFormRestApi' ),
+            'name'                => _x( 'Contacts', 'Post Type General Name', 'contact-form-rest-api' ),
+            'singular_name'       => _x( 'Contact', 'Post Type Singular Name', 'contact-form-rest-api' ),
+            'menu_name'           => __( 'Contacts', 'contact-form-rest-api' ),
+            'parent_item_colon'   => __( 'Parent Contact', 'contact-form-rest-api' ),
+            'all_items'           => __( 'All Contacts', 'contact-form-rest-api' ),
+            'view_item'           => __( 'View Contact', 'contact-form-rest-api' ),
+            'add_new_item'        => __( 'Add New Contact', 'contact-form-rest-api' ),
+            'add_new'             => __( 'Add New', 'contact-form-rest-api' ),
+            'edit_item'           => __( 'Edit Contact', 'contact-form-rest-api' ),
+            'update_item'         => __( 'Update Contact', 'contact-form-rest-api' ),
+            'search_items'        => __( 'Search Contact', 'contact-form-rest-api' ),
+            'not_found'           => __( 'Not Found', 'contact-form-rest-api' ),
+            'not_found_in_trash'  => __( 'Not found in Trash', 'contact-form-rest-api' ),
         );
          
         $expense_args = array(
-            'label'               => __( 'Contacts', 'ContactFormRestApi' ),
-            'description'         => __( '', 'ContactFormRestApi' ),
+            'label'               => __( 'Contacts', 'contact-form-rest-api' ),
+            'description'         => __( 'Contact form submissions', 'contact-form-rest-api' ),
             'labels'              => $expense_labels,        
             'supports'            => array( 'title', 'excerpt', 'author', 'thumbnail', 'comments', 'custom-fields','editor' ),        
-            'taxonomies'          => array( 'expense-category' ),        
+            'taxonomies'          => array( 'contact-category' ),        
             'hierarchical'        => false,
             'public'              => true,
             'show_ui'             => true,
@@ -54,17 +54,17 @@ class Wp_Contact_Form_Rest_Api_Admin_customiser {
     
         // Register Contact category Start
         $labels = array(
-            'name'              => _x( 'Contact Categories', 'taxonomy general name', 'ContactFormRestApi' ),
-            'singular_name'     => _x( 'Contact Category', 'taxonomy singular name', 'ContactFormRestApi' ),
-            'search_items'      => __( 'Search Contact Categories', 'ContactFormRestApi' ),
-            'all_items'         => __( 'All Contact Categories', 'ContactFormRestApi' ),
-            'parent_item'       => __( 'Parent Contact Category', 'ContactFormRestApi' ),
-            'parent_item_colon' => __( 'Parent Contact Category:', 'ContactFormRestApi' ),
-            'edit_item'         => __( 'Edit Contact Category', 'ContactFormRestApi' ),
-            'update_item'       => __( 'Update Contact Category', 'ContactFormRestApi' ),
-            'add_new_item'      => __( 'Add New Contact Category', 'ContactFormRestApi' ),
-            'new_item_name'     => __( 'New Contact Category Name', 'ContactFormRestApi' ),
-            'menu_name'         => __( 'Contact Category', 'ContactFormRestApi' ),
+            'name'              => _x( 'Contact Categories', 'taxonomy general name', 'contact-form-rest-api' ),
+            'singular_name'     => _x( 'Contact Category', 'taxonomy singular name', 'contact-form-rest-api' ),
+            'search_items'      => __( 'Search Contact Categories', 'contact-form-rest-api' ),
+            'all_items'         => __( 'All Contact Categories', 'contact-form-rest-api' ),
+            'parent_item'       => __( 'Parent Contact Category', 'contact-form-rest-api' ),
+            'parent_item_colon' => __( 'Parent Contact Category:', 'contact-form-rest-api' ),
+            'edit_item'         => __( 'Edit Contact Category', 'contact-form-rest-api' ),
+            'update_item'       => __( 'Update Contact Category', 'contact-form-rest-api' ),
+            'add_new_item'      => __( 'Add New Contact Category', 'contact-form-rest-api' ),
+            'new_item_name'     => __( 'New Contact Category Name', 'contact-form-rest-api' ),
+            'menu_name'         => __( 'Contact Category', 'contact-form-rest-api' ),
         );
     
         $args = array(
@@ -79,27 +79,27 @@ class Wp_Contact_Form_Rest_Api_Admin_customiser {
     
         );
         register_taxonomy( 'contact-category', array( 'contact' ), $args );
-        // End expense category register
+        // End contact category register
     
     
         /**
-         *  Customize Admin Coloumn
+         *  Customize Admin Columns
          */
-        //add_filter( 'manage_contact_posts_columns', 'WPETA_customize_coloumns' );
-        function WPETA_customize_coloumns( $columns ) {
-        $columns['amount'] = __( 'Amount', 'ContactFormRestApi' );
+        //add_filter( 'manage_contact_posts_columns', 'WPETA_customize_columns' );
+        function WPETA_customize_columns( $columns ) {
+        $columns['email'] = __( 'Email', 'contact-form-rest-api' );
         return $columns;
         }
     
         /**
-         * Manage custom coloumn
+         * Manage custom column
          */
-        // add_action( 'manage_contact_posts_custom_column', 'WPETA_transaction_coloumn', 10, 2);
-        function WPETA_transaction_coloumn( $column, $post_id ) {
-        // Image column
+        // add_action( 'manage_contact_posts_custom_column', 'WPETA_transaction_column', 10, 2);
+        function WPETA_transaction_column( $column, $post_id ) {
+        // Email column
             switch($column){
-                case 'amount':
-                    echo(get_post_meta($post_id, 'amount', true));
+                case 'email':
+                    echo(get_post_meta($post_id, 'contact_email', true));
                 break;
             }
         }

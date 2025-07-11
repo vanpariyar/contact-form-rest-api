@@ -1,228 +1,271 @@
 <?php
- 
-class Slug_Custom_Route extends WP_REST_Controller {
+/**
+ * Contact Form REST API Routes
+ * 
+ * @package ContactFormRestApi
+ */
+
+// Check if WP_REST_Controller is available
+if ( ! class_exists( 'WP_REST_Controller' ) ) {
+    return;
+}
+
+class Contact_Form_REST_Controller extends WP_REST_Controller {
  
   /**
-   * Register the routes for the objects of the controller.
+   * Register the routes for the contact form API.
    */
   public function register_routes() {
     $version = '1';
-    $namespace = 'contact/v' . $version;
-    $base = 'route';
+    $namespace = 'contact-form/v' . $version;
+    $base = 'submit';
+    
+    // Register the contact form submission endpoint
     register_rest_route( $namespace, '/' . $base, array(
       array(
-        'methods'             => WP_REST_Server::READABLE,
-        'callback'            => array( $this, 'get_items' ),
-        'permission_callback' => array( $this, 'get_items_permissions_check' ),
-        'args'                => array(
- 
-        ),
-      ),
-      array(
         'methods'             => WP_REST_Server::CREATABLE,
-        'callback'            => array( $this, 'create_item' ),
-        'permission_callback' => array( $this, 'create_item_permissions_check' ),
+        'callback'            => array( $this, 'submit_contact_form' ),
+        'permission_callback' => array( $this, 'submit_contact_form_permissions_check' ),
         'args'                => $this->get_endpoint_args_for_item_schema( true ),
       ),
     ) );
-    register_rest_route( $namespace, '/' . $base . '/(?P<id>[\d]+)', array(
+    
+    // Register endpoint to get all contact submissions (admin only)
+    register_rest_route( $namespace, '/submissions', array(
       array(
         'methods'             => WP_REST_Server::READABLE,
-        'callback'            => array( $this, 'get_item' ),
-        'permission_callback' => array( $this, 'get_item_permissions_check' ),
+        'callback'            => array( $this, 'get_contact_submissions' ),
+        'permission_callback' => array( $this, 'get_submissions_permissions_check' ),
+        'args'                => $this->get_collection_params(),
+      ),
+    ) );
+    
+    // Register endpoint to get a specific contact submission (admin only)
+    register_rest_route( $namespace, '/submissions/(?P<id>[\d]+)', array(
+      array(
+        'methods'             => WP_REST_Server::READABLE,
+        'callback'            => array( $this, 'get_contact_submission' ),
+        'permission_callback' => array( $this, 'get_submission_permissions_check' ),
         'args'                => array(
           'context' => array(
             'default' => 'view',
           ),
         ),
       ),
-      array(
-        'methods'             => WP_REST_Server::EDITABLE,
-        'callback'            => array( $this, 'update_item' ),
-        'permission_callback' => array( $this, 'update_item_permissions_check' ),
-        'args'                => $this->get_endpoint_args_for_item_schema( false ),
-      ),
-      array(
-        'methods'             => WP_REST_Server::DELETABLE,
-        'callback'            => array( $this, 'delete_item' ),
-        'permission_callback' => array( $this, 'delete_item_permissions_check' ),
-        'args'                => array(
-          'force' => array(
-            'default' => false,
-          ),
-        ),
-      ),
     ) );
-    register_rest_route( $namespace, '/' . $base . '/schema', array(
+    
+    // Register schema endpoint
+    register_rest_route( $namespace, '/schema', array(
       'methods'  => WP_REST_Server::READABLE,
       'callback' => array( $this, 'get_public_item_schema' ),
     ) );
   }
  
   /**
-   * Get a collection of items
+   * Submit a contact form
    *
    * @param WP_REST_Request $request Full data about the request.
    * @return WP_Error|WP_REST_Response
    */
-  public function get_items( $request ) {
-    $items = array(); //do a query, call another class, etc
-    $data = array();
-    foreach( $items as $item ) {
-      $itemdata = $this->prepare_item_for_response( $item, $request );
-      $data[] = $this->prepare_response_for_collection( $itemdata );
+  public function submit_contact_form( $request ) {
+    $params = $request->get_params();
+    
+    // Validate required fields
+    $required_fields = array( 'name', 'email', 'message' );
+    foreach ( $required_fields as $field ) {
+      if ( empty( $params[ $field ] ) ) {
+        return new WP_Error( 
+          'missing_field', 
+          sprintf( __( 'Missing required field: %s', 'contact-form-rest-api' ), $field ), 
+          array( 'status' => 400 ) 
+        );
+      }
     }
- 
+    
+    // Sanitize and validate email
+    $email = sanitize_email( $params['email'] );
+    if ( ! is_email( $email ) ) {
+      return new WP_Error( 
+        'invalid_email', 
+        __( 'Invalid email address', 'contact-form-rest-api' ), 
+        array( 'status' => 400 ) 
+      );
+    }
+    
+    // Prepare contact data
+    $contact_data = array(
+      'post_title'    => sanitize_text_field( $params['name'] ),
+      'post_content'  => sanitize_textarea_field( $params['message'] ),
+      'post_status'   => 'publish',
+      'post_type'     => 'contact',
+      'post_author'   => 1, // Default admin user
+    );
+    
+    // Insert the contact submission
+    $post_id = wp_insert_post( $contact_data );
+    
+    if ( is_wp_error( $post_id ) ) {
+      return new WP_Error( 
+        'insert_failed', 
+        __( 'Failed to save contact submission', 'contact-form-rest-api' ), 
+        array( 'status' => 500 ) 
+      );
+    }
+    
+    // Save additional meta data
+    update_post_meta( $post_id, 'contact_email', $email );
+    update_post_meta( $post_id, 'contact_phone', isset( $params['phone'] ) ? sanitize_text_field( $params['phone'] ) : '' );
+    update_post_meta( $post_id, 'contact_subject', isset( $params['subject'] ) ? sanitize_text_field( $params['subject'] ) : '' );
+    update_post_meta( $post_id, 'submission_date', current_time( 'mysql' ) );
+    
+    // Send email notification if configured
+    $this->send_contact_notification( $params, $post_id );
+    
+    // Prepare response data
+    $response_data = array(
+      'id'      => $post_id,
+      'message' => __( 'Contact form submitted successfully', 'contact-form-rest-api' ),
+      'status'  => 'success'
+    );
+    
+    return new WP_REST_Response( $response_data, 201 );
+  }
+  
+  /**
+   * Get all contact submissions (admin only)
+   *
+   * @param WP_REST_Request $request Full data about the request.
+   * @return WP_Error|WP_REST_Response
+   */
+  public function get_contact_submissions( $request ) {
+    $args = array(
+      'post_type'      => 'contact',
+      'post_status'    => 'publish',
+      'posts_per_page' => $request->get_param( 'per_page' ) ?: 10,
+      'paged'          => $request->get_param( 'page' ) ?: 1,
+      'orderby'        => 'date',
+      'order'          => 'DESC',
+    );
+    
+    $query = new WP_Query( $args );
+    $submissions = array();
+    
+    if ( $query->have_posts() ) {
+      while ( $query->have_posts() ) {
+        $query->the_post();
+        $submissions[] = $this->prepare_contact_submission_for_response( get_post() );
+      }
+    }
+    
+    wp_reset_postdata();
+    
+    return new WP_REST_Response( $submissions, 200 );
+  }
+  
+  /**
+   * Get a specific contact submission (admin only)
+   *
+   * @param WP_REST_Request $request Full data about the request.
+   * @return WP_Error|WP_REST_Response
+   */
+  public function get_contact_submission( $request ) {
+    $post_id = $request->get_param( 'id' );
+    $post = get_post( $post_id );
+    
+    if ( ! $post || $post->post_type !== 'contact' ) {
+      return new WP_Error( 
+        'not_found', 
+        __( 'Contact submission not found', 'contact-form-rest-api' ), 
+        array( 'status' => 404 ) 
+      );
+    }
+    
+    $data = $this->prepare_contact_submission_for_response( $post );
+    
     return new WP_REST_Response( $data, 200 );
   }
- 
+  
   /**
-   * Get one item from the collection
+   * Send email notification for new contact submission
    *
-   * @param WP_REST_Request $request Full data about the request.
-   * @return WP_Error|WP_REST_Response
+   * @param array $params Contact form parameters
+   * @param int $post_id Post ID of the contact submission
    */
-  public function get_item( $request ) {
-    //get parameters from request
-    $params = $request->get_params();
-    $item = array();//do a query, call another class, etc
-    $data = $this->prepare_item_for_response( $item, $request );
- 
-    //return a response or error based on some conditional
-    if ( 1 == 1 ) {
-      return new WP_REST_Response( $data, 200 );
-    } else {
-      return new WP_Error( 'code', __( 'message', 'text-domain' ) );
-    }
+  private function send_contact_notification( $params, $post_id ) {
+    $admin_email = get_option( 'admin_email' );
+    $site_name = get_bloginfo( 'name' );
+    
+    $subject = sprintf( __( 'New contact form submission from %s', 'contact-form-rest-api' ), $params['name'] );
+    
+    $message = sprintf(
+      __( 'You have received a new contact form submission:
+
+Name: %s
+Email: %s
+Phone: %s
+Subject: %s
+Message: %s
+
+View submission: %s', 'contact-form-rest-api' ),
+      $params['name'],
+      $params['email'],
+      isset( $params['phone'] ) ? $params['phone'] : 'N/A',
+      isset( $params['subject'] ) ? $params['subject'] : 'N/A',
+      $params['message'],
+      admin_url( 'post.php?post=' . $post_id . '&action=edit' )
+    );
+    
+    wp_mail( $admin_email, $subject, $message );
+  }
+  
+  /**
+   * Prepare contact submission for response
+   *
+   * @param WP_Post $post Contact submission post
+   * @return array Prepared data
+   */
+  private function prepare_contact_submission_for_response( $post ) {
+    return array(
+      'id'      => $post->ID,
+      'name'    => $post->post_title,
+      'email'   => get_post_meta( $post->ID, 'contact_email', true ),
+      'phone'   => get_post_meta( $post->ID, 'contact_phone', true ),
+      'subject' => get_post_meta( $post->ID, 'contact_subject', true ),
+      'message' => $post->post_content,
+      'date'    => $post->post_date,
+      'status'  => $post->post_status,
+    );
   }
  
   /**
-   * Create one item from the collection
-   *
-   * @param WP_REST_Request $request Full data about the request.
-   * @return WP_Error|WP_REST_Response
-   */
-  public function create_item( $request ) {
-    $item = $this->prepare_item_for_database( $request );
- 
-    if ( function_exists( 'slug_some_function_to_create_item' ) ) {
-      $data = slug_some_function_to_create_item( $item );
-      if ( is_array( $data ) ) {
-        return new WP_REST_Response( $data, 200 );
-      }
-    }
- 
-    return new WP_Error( 'cant-create', __( 'message', 'text-domain' ), array( 'status' => 500 ) );
-  }
- 
-  /**
-   * Update one item from the collection
-   *
-   * @param WP_REST_Request $request Full data about the request.
-   * @return WP_Error|WP_REST_Response
-   */
-  public function update_item( $request ) {
-    $item = $this->prepare_item_for_database( $request );
- 
-    if ( function_exists( 'slug_some_function_to_update_item' ) ) {
-      $data = slug_some_function_to_update_item( $item );
-      if ( is_array( $data ) ) {
-        return new WP_REST_Response( $data, 200 );
-      }
-    }
- 
-    return new WP_Error( 'cant-update', __( 'message', 'text-domain' ), array( 'status' => 500 ) );
-  }
- 
-  /**
-   * Delete one item from the collection
-   *
-   * @param WP_REST_Request $request Full data about the request.
-   * @return WP_Error|WP_REST_Response
-   */
-  public function delete_item( $request ) {
-    $item = $this->prepare_item_for_database( $request );
- 
-    if ( function_exists( 'slug_some_function_to_delete_item' ) ) {
-      $deleted = slug_some_function_to_delete_item( $item );
-      if ( $deleted ) {
-        return new WP_REST_Response( true, 200 );
-      }
-    }
- 
-    return new WP_Error( 'cant-delete', __( 'message', 'text-domain' ), array( 'status' => 500 ) );
-  }
- 
-  /**
-   * Check if a given request has access to get items
+   * Check if a given request has access to submit contact form
    *
    * @param WP_REST_Request $request Full data about the request.
    * @return WP_Error|bool
    */
-  public function get_items_permissions_check( $request ) {
-    //return true; <--use to make readable by all
-    return current_user_can( 'edit_something' );
+  public function submit_contact_form_permissions_check( $request ) {
+    // Allow public access for contact form submission
+    return true;
   }
- 
+  
   /**
-   * Check if a given request has access to get a specific item
+   * Check if a given request has access to get contact submissions
    *
    * @param WP_REST_Request $request Full data about the request.
    * @return WP_Error|bool
    */
-  public function get_item_permissions_check( $request ) {
-    return $this->get_items_permissions_check( $request );
+  public function get_submissions_permissions_check( $request ) {
+    return current_user_can( 'edit_posts' );
   }
- 
+  
   /**
-   * Check if a given request has access to create items
+   * Check if a given request has access to get a specific contact submission
    *
    * @param WP_REST_Request $request Full data about the request.
    * @return WP_Error|bool
    */
-  public function create_item_permissions_check( $request ) {
-    return current_user_can( 'edit_something' );
-  }
- 
-  /**
-   * Check if a given request has access to update a specific item
-   *
-   * @param WP_REST_Request $request Full data about the request.
-   * @return WP_Error|bool
-   */
-  public function update_item_permissions_check( $request ) {
-    return $this->create_item_permissions_check( $request );
-  }
- 
-  /**
-   * Check if a given request has access to delete a specific item
-   *
-   * @param WP_REST_Request $request Full data about the request.
-   * @return WP_Error|bool
-   */
-  public function delete_item_permissions_check( $request ) {
-    return $this->create_item_permissions_check( $request );
-  }
- 
-  /**
-   * Prepare the item for create or update operation
-   *
-   * @param WP_REST_Request $request Request object
-   * @return WP_Error|object $prepared_item
-   */
-  protected function prepare_item_for_database( $request ) {
-    return array();
-  }
- 
-  /**
-   * Prepare the item for the REST response
-   *
-   * @param mixed $item WordPress representation of the item.
-   * @param WP_REST_Request $request Request object.
-   * @return mixed
-   */
-  public function prepare_item_for_response( $item, $request ) {
-    return array();
+  public function get_submission_permissions_check( $request ) {
+    return current_user_can( 'edit_posts' );
   }
  
   /**
@@ -233,22 +276,66 @@ class Slug_Custom_Route extends WP_REST_Controller {
   public function get_collection_params() {
     return array(
       'page'     => array(
-        'description'       => 'Current page of the collection.',
+        'description'       => __( 'Current page of the collection.', 'contact-form-rest-api' ),
         'type'              => 'integer',
         'default'           => 1,
         'sanitize_callback' => 'absint',
       ),
       'per_page' => array(
-        'description'       => 'Maximum number of items to be returned in result set.',
+        'description'       => __( 'Maximum number of items to be returned in result set.', 'contact-form-rest-api' ),
         'type'              => 'integer',
         'default'           => 10,
         'sanitize_callback' => 'absint',
       ),
-      'search'   => array(
-        'description'       => 'Limit results to those matching a string.',
-        'type'              => 'string',
-        'sanitize_callback' => 'sanitize_text_field',
-      ),
     );
   }
+  
+  /**
+   * Get the contact form schema
+   *
+   * @return array
+   */
+  public function get_endpoint_args_for_item_schema( $create = false ) {
+    $args = array(
+      'name' => array(
+        'description' => __( 'Contact name', 'contact-form-rest-api' ),
+        'type'        => 'string',
+        'required'    => true,
+        'sanitize_callback' => 'sanitize_text_field',
+      ),
+      'email' => array(
+        'description' => __( 'Contact email', 'contact-form-rest-api' ),
+        'type'        => 'string',
+        'required'    => true,
+        'format'      => 'email',
+        'sanitize_callback' => 'sanitize_email',
+      ),
+      'phone' => array(
+        'description' => __( 'Contact phone number', 'contact-form-rest-api' ),
+        'type'        => 'string',
+        'required'    => false,
+        'sanitize_callback' => 'sanitize_text_field',
+      ),
+      'subject' => array(
+        'description' => __( 'Contact subject', 'contact-form-rest-api' ),
+        'type'        => 'string',
+        'required'    => false,
+        'sanitize_callback' => 'sanitize_text_field',
+      ),
+      'message' => array(
+        'description' => __( 'Contact message', 'contact-form-rest-api' ),
+        'type'        => 'string',
+        'required'    => true,
+        'sanitize_callback' => 'sanitize_textarea_field',
+      ),
+    );
+    
+    return $args;
+  }
 }
+
+// Initialize and register the REST controller
+add_action( 'rest_api_init', function () {
+  $controller = new Contact_Form_REST_Controller();
+  $controller->register_routes();
+} );
