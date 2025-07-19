@@ -56,8 +56,9 @@ class Contact_Form_REST_Controller extends WP_REST_Controller {
     
     // Register schema endpoint
     register_rest_route( $namespace, '/schema', array(
-      'methods'  => WP_REST_Server::READABLE,
-      'callback' => array( $this, 'get_public_item_schema' ),
+      'methods'             => WP_REST_Server::READABLE,
+      'callback'            => array( $this, 'get_public_item_schema' ),
+      'permission_callback' => '__return_true',
     ) );
   }
  
@@ -300,14 +301,13 @@ View submission: %s', 'contact-form-rest-api' ),
       'name' => array(
         'description' => __( 'Contact name', 'contact-form-rest-api' ),
         'type'        => 'string',
-        'required'    => true,
+        'required'    => false, // Handle validation in our custom logic
         'sanitize_callback' => 'sanitize_text_field',
       ),
       'email' => array(
         'description' => __( 'Contact email', 'contact-form-rest-api' ),
         'type'        => 'string',
-        'required'    => true,
-        'format'      => 'email',
+        'required'    => false, // Handle validation in our custom logic
         'sanitize_callback' => 'sanitize_email',
       ),
       'phone' => array(
@@ -325,7 +325,7 @@ View submission: %s', 'contact-form-rest-api' ),
       'message' => array(
         'description' => __( 'Contact message', 'contact-form-rest-api' ),
         'type'        => 'string',
-        'required'    => true,
+        'required'    => false, // Handle validation in our custom logic
         'sanitize_callback' => 'sanitize_textarea_field',
       ),
     );

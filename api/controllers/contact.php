@@ -18,6 +18,7 @@ class Contact_Form_Controller {
      */
     public static function process_contact_submission( $data ) {
         // Validate required fields
+        // print_r($data);
         $required_fields = array( 'name', 'email', 'message' );
         foreach ( $required_fields as $field ) {
             if ( empty( $data[ $field ] ) ) {

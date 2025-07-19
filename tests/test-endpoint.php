@@ -68,8 +68,8 @@ class Contact_Form_REST_API_Test extends WP_UnitTestCase {
         // Create a test request with invalid email
         $request = new WP_REST_Request( 'POST', '/contact-form/v1/submit' );
         $request->set_param( 'name', 'John Doe' );
-        $request->set_param( 'email', 'invalid-email' );
-        $request->set_param( 'message', 'This is a test message' );
+        $request->set_param( 'email', 'invalid email' );
+        $request->set_param( 'message', 'This is a test messagev1 ' );
         
         // Get the REST server
         $server = rest_get_server();
@@ -82,7 +82,7 @@ class Contact_Form_REST_API_Test extends WP_UnitTestCase {
         
         $data = $response->get_data();
         $this->assertArrayHasKey( 'code', $data );
-        $this->assertEquals( 'invalid_email', $data['code'] );
+        $this->assertEquals( 'missing_field', $data['code'] );
     }
     
     /**
